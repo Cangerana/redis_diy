@@ -4,65 +4,29 @@ class Parser
     self.message = message
   end
 
-  def parse(msg)
-    rgx = {
-      str: /\+[a-zA-Z][a-zA-Z0-9]+\\r\\n/, 
-      bulk: //, 
-      arrs: //, 
-    }
-
-    calls = {
-      ping: 'pong',
-    }
-
-    reply_strings = strings.(msg)
-    reply = calls[reply_strings.first.to_sym] if reply_strings.size > 0
-
-    if reply.class == String and reply.size > 1
-      reply
-    else
-      'Unkown command'
-    end
-  end
-
   def decode
-    # the the arry string
-    bulk_strings = get_bulk_from_array
+    raise 'Message isn\'t a array' unless is_array?
+    bulk_strings = get_bulk_from_array message
     # split the elements of array
     # parse the element in commands
   end
 
-  def get_bulk_from_array
-    raise 'Message isn\'t a comman' if is_array?
+  def get_bulk_from_array(msg)
+    raise 'Message don\'t have bulks' unless is_bulk?
+    cmds = []
 
-    amnt_elements = message.match(/[0-9]+i/).to_s.to_i
-    array_str.gsub(/\$[0-9]+\\r\\n/, '')
+    amnt_bytes = msg.scan(/\$([0-9]+)/).flatten.map &:to_i
 
-    elements = []
-    amnt_elements.times do
-      amnt_bytes = array_str.match(/\$[0-9]+/).to_s.to_i 
-
-      bulk = array_str.match(/\$[0-9]+\\r\\n.*\\r\\n/)
-      elements << bulk
+    amnt_bytes.each do |amnt|
+      msg = msg.match(/\$[0-9]+\\r\\n/).post_match
+      cmds << msg[0..amnt-1]
+      msg.delete_prefix cmds.last
     end
+
+    cmds
   end
 
   def encode
-  end
-
-  def get_bulk(msg)
-    amnt_bytes = msg.scan(/\$([0-9]+)/).flatten.map &:to_i
-    msg = msg.gsub(/\$[0-9]+\\r\\n/, '')
-
-    bulks = []
-    index = 0
-    amnt_bytes.each do |amnt|
-      bulks << msg.slice index..index+amnt
-      index += amnt + '\r\n'.size
-    end
-
-    el = []
-
   end
 
   def get_string(str=nil)
@@ -94,7 +58,8 @@ msg_bulk = '$30\r\nTHIS CONTAINS A \r\n INSIDE IT\r\n'
 msg_array = '*2\r\n$3\r\nhey\r\n$5\r\nthere\r\n'
 
 msg_parsed = Parser.new(msg_array)
-puts msg_parsed.is_string?
-puts msg_parsed.is_bulk?
-puts msg_parsed.is_array?
+puts msg_parsed.decode
+# puts msg_parsed.is_string?
+# puts msg_parsed.is_array?
+# puts msg_parsed.is_bulk?
 
